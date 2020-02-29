@@ -92,8 +92,6 @@ namespace SatisfiedStorage
         {
             // if base implementation waves of, then don't need to care
 
-            int current = -1;
-            int totalcapacity = -1;
 
             if (__result)
             {
@@ -106,7 +104,7 @@ namespace SatisfiedStorage
                 }
 
 
-
+                /*
                 foreach (Thing thisthing in map.thingGrid.ThingsListAt(c))
                 {
                     if (SatisfiedStorageMod.DeepStorageCOMP)
@@ -148,7 +146,7 @@ namespace SatisfiedStorage
 
 
                 }
-
+                */
 
                 
 
