@@ -9,4 +9,10 @@
 	<description>
 		SatisfiedStorage
 	</description>
+	<loadAfter>
+		<li>Ludeon.RimWorld</li>
+		<li>Ludeon.RimWorld.Royalty</li>
+		<li>UnlimitedHugs.Hugslib</li>
+
+	</loadAfter>
 </ModMetaData>
