@@ -86,70 +86,49 @@ namespace SatisfiedStorage
     [HarmonyPatch(typeof(StoreUtility), "NoStorageBlockersIn")]
     internal class StoreUtility_NoStorageBlockersIn
     {
-
+        // Some storage mods allow more than one thing in a cell.  If they do, we need to do
+        //   more of a check to see if the threshold has been met; we only check if we need to:
+        public static bool checkIHoldMultipleThings=false;
+        public bool Prepare() {
+            if (ModLister.GetActiveModWithIdentifier("LWM.DeepStorage")!=null) {
+                checkIHoldMultipleThings=true;
+                Log.Message("Activating compatibility for LWM.DeepStorage");
+            }
+            //  If other storage mods don't work, add the test here:
+            return true;
+        }
         [HarmonyPostfix]
         public static void FilledEnough(ref bool __result, IntVec3 c, Map map, Thing thing)
         {
-            // if base implementation waves of, then don't need to care
-
-
+            // if base implementation waves off, then don't need to care
             if (__result)
             {
-
                 float num = 100f;
-                bool flag = c.GetSlotGroup(map) != null && c.GetSlotGroup(map).Settings != null;
+                SlotGroup slotGroup=c.GetSlotGroup(map);
+                
+                bool flag = slotGroup != null && slotGroup.Settings != null;
                 if (flag)
                 {
-                    num = StorageSettings_Mapping.Get(c.GetSlotGroup(map).Settings).FillPercent;
+                    num = StorageSettings_Mapping.Get(slotGroup.Settings).FillPercent;
                 }
-
-
-                /*
-                foreach (Thing thisthing in map.thingGrid.ThingsListAt(c))
-                {
-                    if (SatisfiedStorageMod.DeepStorageCOMP)
-                    {
-                        //it might be a deep storage so lets check if it has  
-
-                        var th = thisthing as ThingWithComps;
-                        if (th == null) continue;
-                        foreach (ThingComp cc in th.AllComps)
-                        {
-                            
-                            if (cc == null) continue;
-                            if (cc.GetType() == SatisfiedStorageMod._comptype)
-                            {
-                                //it is a deep storage so
-
-                                object[] parameters = new object[] { thing, c, map, null };
-                                object result1 = SatisfiedStorageMod.methodcapacityat.Invoke(cc, parameters);
-                                current = (int)parameters[3];
-
-
-                                //we found the type now lets ask him if he wants us   
-                                object result2 = SatisfiedStorageMod.methodcapacitytostorethingat.Invoke(cc, new object[] { thing, map, c });
-                                totalcapacity = (int)result2;
-                                Log.Message("status : " + current.ToString() + "//" + totalcapacity.ToString());
-
-                                //ITS A DEEP STORAGE SO LETS GET THE RESULT AND LEAVE
-                                if(current > totalcapacity * (num / 100f))
-                                {
-                                    __result = false;                                    
-                                }
-
-                                 // IT IS NOT POSSIBLE TO HAVE DEEP STORAGE AND A STORAGE ZONE ON TOP OF EACH OTHER SO NO NEED TO CHECK MORE
-                                return;
+                if (checkIHoldMultipleThings) {
+                    var allComps=(slotGroup?.parent as ThingWithComps)?.AllComps;
+                    if (allComps!=null) {
+                        foreach (var comp in allComps) {
+                            if (comp is IHoldMultipleThings.IHoldMultipleThings) {
+                                int capacity=0;
+                                comp.CapacityAt(thing, c, map, out capacity);
+                                // if total capacity is larger than the stackLimit (full stack available)
+                                //    Allow hauling (other choices are valid)
+                                // if (capacity > thing.def.stackLimit) return true;
+                                // only haul if count is below threshold
+                                //   which is equivalent to availability being above threshold:
+                                return (100f*(float)capacity/(float)thing.def.stackLimit) > num;
                             }
                         }
                     }
-
-
-
                 }
-                */
-
-                
-
+                // Vanilla check:
                 __result &= !map.thingGrid.ThingsListAt(c).Any(t => t.def.EverStorable(false) && t.stackCount >= thing.def.stackLimit * (num / 100f));
                 
 
