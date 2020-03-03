@@ -7,6 +7,7 @@ using HarmonyLib;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using IHoldMultipleThings;
 
 namespace SatisfiedStorage
 {
@@ -89,7 +90,7 @@ namespace SatisfiedStorage
         // Some storage mods allow more than one thing in a cell.  If they do, we need to do
         //   more of a check to see if the threshold has been met; we only check if we need to:
         public static bool checkIHoldMultipleThings=false;
-        public bool Prepare() {
+        public static bool Prepare() {
             if (ModLister.GetActiveModWithIdentifier("LWM.DeepStorage")!=null) {
                 checkIHoldMultipleThings=true;
                 Log.Message("Activating compatibility for LWM.DeepStorage");
@@ -100,6 +101,8 @@ namespace SatisfiedStorage
         [HarmonyPostfix]
         public static void FilledEnough(ref bool __result, IntVec3 c, Map map, Thing thing)
         {
+            //FALSE IF ITS TOO FULL
+
             // if base implementation waves off, then don't need to care
             if (__result)
             {
@@ -117,13 +120,24 @@ namespace SatisfiedStorage
                         foreach (var comp in allComps) {
                             if (comp is IHoldMultipleThings.IHoldMultipleThings) {
                                 int capacity=0;
-                                comp.CapacityAt(thing, c, map, out capacity);
+                                IHoldMultipleThings.IHoldMultipleThings thiscomp = (IHoldMultipleThings.IHoldMultipleThings)comp;
+
+                                thiscomp.CapacityAt(thing, c, map, out capacity);
                                 // if total capacity is larger than the stackLimit (full stack available)
                                 //    Allow hauling (other choices are valid)
                                 // if (capacity > thing.def.stackLimit) return true;
                                 // only haul if count is below threshold
                                 //   which is equivalent to availability being above threshold:
-                                return (100f*(float)capacity/(float)thing.def.stackLimit) > num;
+                                //            Log.Message("capacity = " + capacity);
+                                //            Log.Message("thing.def.stackLimit = " +thing.def.stackLimit);
+                                float var = (100f * (float)capacity / thing.def.stackLimit);
+
+                                __result = var > (100 - num);
+                          //      if (__result == false){
+                          //          Log.Message("ITS TOO FULL stop yey");
+                          //      }
+                                
+                                return;
                             }
                         }
                     }
