@@ -93,17 +93,18 @@ namespace SatisfiedStorage
         public static bool Prepare() {
             if (ModLister.GetActiveModWithIdentifier("LWM.DeepStorage")!=null) {
                 checkIHoldMultipleThings=true;
-                Log.Message("Activating compatibility for LWM.DeepStorage");
+                Log.Message("SatisfiedStorage _ Activating compatibility for LWM.DeepStorage");
             }
             //  If other storage mods don't work, add the test here:
             return true;
         }
         [HarmonyPostfix]
-        public static void FilledEnough(ref bool __result, IntVec3 c, Map map, Thing thing)
+        public static void NoStorageBlockersInPost(ref bool __result, IntVec3 c, Map map, Thing thing)
         {
             //FALSE IF ITS TOO FULL
+            //TRUE IF THERE IS EMPTY SPACE
 
-            // if base implementation waves off, then don't need to care
+            //we dont make empty space so if its full then we dont care
             if (__result)
             {
                 float num = 100f;
@@ -114,37 +115,51 @@ namespace SatisfiedStorage
                 {
                     num = StorageSettings_Mapping.Get(slotGroup.Settings).FillPercent;
                 }
+
+                //LWM.DeepStorage
                 if (checkIHoldMultipleThings) {
-                    var allComps=(slotGroup?.parent as ThingWithComps)?.AllComps;
-                    if (allComps!=null) {
-                        foreach (var comp in allComps) {
-                            if (comp is IHoldMultipleThings.IHoldMultipleThings) {
-                                int capacity=0;
-                                IHoldMultipleThings.IHoldMultipleThings thiscomp = (IHoldMultipleThings.IHoldMultipleThings)comp;
 
-                                thiscomp.CapacityAt(thing, c, map, out capacity);
-                                // if total capacity is larger than the stackLimit (full stack available)
-                                //    Allow hauling (other choices are valid)
-                                // if (capacity > thing.def.stackLimit) return true;
-                                // only haul if count is below threshold
-                                //   which is equivalent to availability being above threshold:
-                                //            Log.Message("capacity = " + capacity);
-                                //            Log.Message("thing.def.stackLimit = " +thing.def.stackLimit);
-                                float var = (100f * (float)capacity / thing.def.stackLimit);
+                    foreach(Thing thisthing in map.thingGrid.ThingsListAt(c))
+                    {
+                        ThingWithComps th = thisthing as ThingWithComps;
+                        if (th == null) continue;
+                        var allComps = th.AllComps;
 
-                                __result = var > (100 - num);
-                          //      if (__result == false){
-                          //          Log.Message("ITS TOO FULL stop yey");
-                          //      }
-                                
-                                return;
+                        if (allComps != null)
+                        {
+                            foreach (var comp in allComps)
+                            {
+                                if (comp is IHoldMultipleThings.IHoldMultipleThings)
+                                {
+                                    int capacity = 0;
+                                    IHoldMultipleThings.IHoldMultipleThings thiscomp = (IHoldMultipleThings.IHoldMultipleThings)comp;
+
+                                    thiscomp.CapacityAt(thing, c, map, out capacity);
+                                    // if total capacity is larger than the stackLimit (full stack available)
+                                    //    Allow hauling (other choices are valid)
+                                    // if (capacity > thing.def.stackLimit) return true;
+                                    // only haul if count is below threshold
+                                    //   which is equivalent to availability being above threshold:
+                                    //            Log.Message("capacity = " + capacity);
+                                    //            Log.Message("thing.def.stackLimit = " +thing.def.stackLimit);
+                                    float var = (100f * (float)capacity / thing.def.stackLimit);
+
+                                    //100 - num is necessary because capacity gives empty space not full space
+                                    __result = var > (100 - num);
+                                    //      if (__result == false){
+                                    //          Log.Message("ITS TOO FULL stop yey");
+                                    //      }
+                                    return;
+                                }
                             }
                         }
+
                     }
+                    
                 }
-                // Vanilla check:
-                __result &= !map.thingGrid.ThingsListAt(c).Any(t => t.def.EverStorable(false) && t.stackCount >= thing.def.stackLimit * (num / 100f));
-                
+
+                // mod check:
+                __result &= !map.thingGrid.ThingsListAt(c).Any(t => t.def.EverStorable(false) && t.stackCount >= thing.def.stackLimit * (num / 100f));                
 
             }
         }
