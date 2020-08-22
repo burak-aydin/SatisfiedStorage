@@ -84,6 +84,22 @@ namespace SatisfiedStorage
         }
     }
 
+    [HarmonyPatch(typeof(StorageSettings), nameof(StorageSettings.CopyFrom))]
+    public class StorageSettings_CopyFrom
+    {
+
+        [HarmonyPostfix]
+        public static void CopyFrom(StorageSettings __instance, StorageSettings other)
+        {
+            StorageSettings_Hysteresis storageSettings_Hysteresis = StorageSettings_Mapping.Get(other);
+            bool flag = storageSettings_Hysteresis != null;
+            if (flag)
+            {
+                StorageSettings_Mapping.Set(__instance, storageSettings_Hysteresis);
+            }
+        }
+    }
+
     [HarmonyPatch(typeof(StoreUtility), "NoStorageBlockersIn")]
     internal class StoreUtility_NoStorageBlockersIn
     {
