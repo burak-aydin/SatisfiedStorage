@@ -78,11 +78,11 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PreBuildEvent>if exist "..\VERSION" del /q  "..\VERSION"</PreBuildEvent>
+    <PreBuildEvent>if exist "..\..\VERSION" del /q  "..\..\VERSION"</PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
-    <PostBuildEvent>rmdir /s /q "..\Source\obj"
-date /t &gt;&gt; ..\VERSION
-time /t &gt;&gt; ..\VERSION</PostBuildEvent>
+    <PostBuildEvent>rmdir /s /q "..\..\Source\obj"
+date /t &gt;&gt; ..\..\VERSION
+time /t &gt;&gt; ..\..\VERSION</PostBuildEvent>
   </PropertyGroup>
 </Project>
