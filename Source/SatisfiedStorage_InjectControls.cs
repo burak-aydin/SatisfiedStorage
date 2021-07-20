@@ -129,7 +129,9 @@ namespace SatisfiedStorage
 
                 //LWM.DeepStorage
                 if (checkIHoldMultipleThings) {
-
+                    // NOTE: Other storage mods may not be comp-based.  If one ever starts causing
+                    //   problems with this mod, the logic here can be updated to include checking
+                    //   whether the storage building itself is IHoldMultipleThings
                     foreach(Thing thisthing in map.thingGrid.ThingsListAt(c))
                     {
                         ThingWithComps th = thisthing as ThingWithComps;
