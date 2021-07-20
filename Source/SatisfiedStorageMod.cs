@@ -9,6 +9,7 @@ using UnityEngine;
 using Verse;
 using RimWorld.Planet;
 
+
 namespace SatisfiedStorage
 {
     
@@ -20,9 +21,13 @@ namespace SatisfiedStorage
         {
             Log.Message("SatisfiedStorage loading");
             Harmony harmonyInstance = new Harmony("SatisfiedStorageMod");
-            harmonyInstance.PatchAll(Assembly.GetExecutingAssembly());              
+            harmonyInstance.PatchAll(Assembly.GetExecutingAssembly());
+
+            
+
 
         }
+
     }    
 
 }

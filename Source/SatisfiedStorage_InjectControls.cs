@@ -9,6 +9,7 @@ using UnityEngine;
 using Verse;
 using IHoldMultipleThings;
 
+
 namespace SatisfiedStorage
 {
 
@@ -35,13 +36,14 @@ namespace SatisfiedStorage
                 DoHysteresisBlock(new Rect(0f, rect.yMax - HysteresisHeight, rect.width, HysteresisHeight), _settingsQueue.Dequeue());
                 rect= new Rect(rect.x, rect.y, rect.width, rect.height - HysteresisBlockHeight);            
             }
-        }        
+        }
 
         private static void DoHysteresisBlock(Rect rect, StorageSettings settings) {
 
             StorageSettings_Hysteresis storageSettings_Hysteresis = StorageSettings_Mapping.Get(settings) ?? new StorageSettings_Hysteresis();
-
+                                   
             storageSettings_Hysteresis.FillPercent = Widgets.HorizontalSlider(rect.LeftPart(0.8f), storageSettings_Hysteresis.FillPercent, 0f, 100f, false, "Refill cells less than");
+            
             Widgets.Label(rect.RightPart(0.2f), storageSettings_Hysteresis.FillPercent.ToString("N0") + "%");
 
             StorageSettings_Mapping.Set(settings, storageSettings_Hysteresis);
@@ -49,7 +51,9 @@ namespace SatisfiedStorage
     }
 
 
-    [HarmonyPatch(typeof(Listing_TreeThingFilter), nameof(Listing_TreeThingFilter.DoCategoryChildren))]
+    
+     
+    [HarmonyPatch(typeof(Listing_TreeThingFilter), "DoCategoryChildren")]
     static class ThingFilter_InjectFilter
     {
         private static readonly Queue<Func<TreeNode_ThingCategory, TreeNode_ThingCategory>> projections = new Queue<Func<TreeNode_ThingCategory, TreeNode_ThingCategory>>();
@@ -58,7 +62,7 @@ namespace SatisfiedStorage
 
         [HarmonyPrefix]
         [SuppressMessage("ReSharper", "UnusedMember.Global", Justification = "Harmony patch method")]
-        public static void Before_DoCategoryChildren(ref TreeNode_ThingCategory node)
+        public static void Before_DoCategoryChildren(ref TreeNode_ThingCategory node, int indentLevel, int openMask, Map map, bool subtreeMatchedSearch)
         {
             if (projections.Count == 0)
                 return;
@@ -66,6 +70,9 @@ namespace SatisfiedStorage
             node = projections.Dequeue()(node);
         }
     }
+         
+
+   
 
     [HarmonyPatch(typeof(StorageSettings), nameof(StorageSettings.ExposeData))]
     public class StorageSettings_ExposeData
@@ -98,15 +105,19 @@ namespace SatisfiedStorage
             //  If other storage mods don't work, add the test here:
             return true;
         }
-        [HarmonyPostfix]
+        [HarmonyPostfix]        
         public static void NoStorageBlockersInPost(ref bool __result, IntVec3 c, Map map, Thing thing)
         {
             //FALSE IF ITS TOO FULL
             //TRUE IF THERE IS EMPTY SPACE
 
             //we dont make empty space so if its full then we dont care
+
+            
+
             if (__result)
             {
+                
                 float num = 100f;
                 SlotGroup slotGroup=c.GetSlotGroup(map);
                 
@@ -161,7 +172,7 @@ namespace SatisfiedStorage
                 // mod check:
                 __result &= !map.thingGrid.ThingsListAt(c).Any(t => t.def.EverStorable(false) && t.stackCount >= thing.def.stackLimit * (num / 100f));                
 
-            }
+            }      
         }
     }
 
