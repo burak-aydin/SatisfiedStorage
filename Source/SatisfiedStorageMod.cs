@@ -21,12 +21,17 @@ namespace SatisfiedStorage
         {
             Log.Message("SatisfiedStorage loading");
             Harmony harmonyInstance = new Harmony("SatisfiedStorageMod");
-            harmonyInstance.PatchAll(Assembly.GetExecutingAssembly());
 
-            
+			/*
+			if (ModLister.GetActiveModWithIdentifier("LWM.DeepStorage") != null)
+			{
+				StoreUtility_NoStorageBlockersIn.checkIHoldMultipleThings = true;
+				Log.Message("SatisfiedStorage _ Activating compatibility for LWM.DeepStorage");
+			}
+			*/
 
-
-        }
+			harmonyInstance.PatchAll(Assembly.GetExecutingAssembly());
+		}
 
     }    
 

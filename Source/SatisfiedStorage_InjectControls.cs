@@ -7,7 +7,6 @@ using HarmonyLib;
 using RimWorld;
 using UnityEngine;
 using Verse;
-using IHoldMultipleThings;
 
 
 namespace SatisfiedStorage
@@ -50,7 +49,6 @@ namespace SatisfiedStorage
         }        
     }
 
-
     
      
     [HarmonyPatch(typeof(Listing_TreeThingFilter), "DoCategoryChildren")]
@@ -71,8 +69,6 @@ namespace SatisfiedStorage
         }
     }
          
-
-   
 
     [HarmonyPatch(typeof(StorageSettings), nameof(StorageSettings.ExposeData))]
     public class StorageSettings_ExposeData
@@ -107,23 +103,103 @@ namespace SatisfiedStorage
         }
     }
 
-
-    [HarmonyPatch(typeof(StoreUtility), "NoStorageBlockersIn")]
+	[HarmonyPatch(typeof(StoreUtility), "NoStorageBlockersIn")]
     internal class StoreUtility_NoStorageBlockersIn
     {
         // Some storage mods allow more than one thing in a cell.  If they do, we need to do
         //   more of a check to see if the threshold has been met; we only check if we need to:
         public static bool checkIHoldMultipleThings=false;
-        public static bool Prepare() {
-            if (ModLister.GetActiveModWithIdentifier("LWM.DeepStorage")!=null) {
-                checkIHoldMultipleThings=true;
-                Log.Message("SatisfiedStorage _ Activating compatibility for LWM.DeepStorage");
-            }
-            //  If other storage mods don't work, add the test here:
-            return true;
+
+        [HarmonyPrefix]        
+        public static bool NoStorageBlockersPrefix(ref bool __result, IntVec3 c, Map map, Thing thing)
+        {
+
+			List<Thing> list = map.thingGrid.ThingsListAt(c);
+			bool flag = false;
+			int items = 0;
+			for (int i = 0; i < list.Count; i++)
+			{
+				Thing thing2 = list[i];
+				bool canStackWith = thing2.CanStackWith(thing);
+				if (canStackWith)
+				{
+					items += thing2.stackCount;
+				}
+
+				if (!flag && thing2.def.EverStorable(false) && canStackWith && thing2.stackCount < thing2.def.stackLimit)
+				{ 
+					flag = true;
+				}
+				if (thing2.def.entityDefToBuild != null && thing2.def.entityDefToBuild.passability != Traversability.Standable)
+				{
+					__result = false;
+					return false;
+				}
+				if (thing2.def.surfaceType == SurfaceType.None && thing2.def.passability != Traversability.Standable && (c.GetMaxItemsAllowedInCell(map) <= 1 || thing2.def.category != ThingCategory.Item))
+				{
+					__result = false;
+					return false;
+				}
+			}
+
+			int maxItemsAllowedInCell = c.GetMaxItemsAllowedInCell(map);
+			bool rv = flag || c.GetItemCount(map) < maxItemsAllowedInCell;
+
+			if (rv)
+			{
+				float num = 100f;
+				SlotGroup slotGroup = c.GetSlotGroup(map);
+
+				flag = slotGroup != null && slotGroup.Settings != null;
+				if (flag)
+				{
+					num = StorageSettings_Mapping.Get(slotGroup.Settings).FillPercent;
+				}
+
+				//TODO: LWM.DeepStorage should not need anything here anymore, but check
+			
+				//Log.Message(thing.def.defName + ":" + items + "<" + (maxItemsAllowedInCell * thing.def.stackLimit * (num / 100f)));
+				rv &= items < maxItemsAllowedInCell * thing.def.stackLimit * (num / 100f);
+			}
+
+			__result = rv;
+			return false;
+		}      
+        
+    }
+
+    [HarmonyPatch(typeof(ITab_Storage), "FillTab")]
+    public class ITab_Storage_FillTab
+    {
+
+        private static Func<RimWorld.ITab_Storage, IStoreSettingsParent> GetSelStoreSettingsParent;
+
+
+        static ITab_Storage_FillTab()
+        {
+            GetSelStoreSettingsParent = Access.GetPropertyGetter<RimWorld.ITab_Storage, IStoreSettingsParent>("SelStoreSettingsParent");
         }
-        [HarmonyPostfix]        
-        public static void NoStorageBlockersInPost(ref bool __result, IntVec3 c, Map map, Thing thing)
+
+
+        [HarmonyPrefix]
+        public static void Before_ITab_Storage_FillTab(ITab_Storage __instance)
+        {
+            if (ReferenceEquals(__instance.GetType().Assembly, typeof(ITab_Storage).Assembly))
+            {
+                // only show hysteresis option for non derived (non-custom) storage(s)
+                HaulingHysteresis_InjectControls.showHysteresisCount++;
+
+                IStoreSettingsParent selStoreSettingsParent = GetSelStoreSettingsParent(__instance);
+                HaulingHysteresis_InjectControls.SettingsQueue.Enqueue(selStoreSettingsParent.GetStoreSettings());
+            }
+        }
+    }
+
+}
+
+
+/*
+         public static void NoStorageBlockersInPost(ref bool __result, IntVec3 c, Map map, Thing thing)
         {
             //FALSE IF ITS TOO FULL
             //TRUE IF THERE IS EMPTY SPACE
@@ -188,38 +264,19 @@ namespace SatisfiedStorage
                     
                 }
 
-                // mod check:
-                __result &= !map.thingGrid.ThingsListAt(c).Any(t => t.def.EverStorable(false) && t.stackCount >= thing.def.stackLimit * (num / 100f));                
+				Building edifice = c.GetEdifice(map);
+				if (edifice != null)
+				{
 
-            }      
+	
+					__result &= !map.thingGrid.ThingsListAt(c).Any(t => {
+						Log.Message("scount:" + t.stackCount + "	mitems:" + edifice.MaxItemsInCell * t.def.stackLimit * (num / 100f));
+						return t.def.EverStorable(false) && t.stackCount >= edifice.MaxItemsInCell * t.def.stackLimit * (num / 100f);
+						});
+				
+				}
+
+
+			}      
         }
-    }
-
-    [HarmonyPatch(typeof(ITab_Storage), "FillTab")]
-    public class ITab_Storage_FillTab
-    {
-
-        private static Func<RimWorld.ITab_Storage, IStoreSettingsParent> GetSelStoreSettingsParent;
-
-
-        static ITab_Storage_FillTab()
-        {
-            GetSelStoreSettingsParent = Access.GetPropertyGetter<RimWorld.ITab_Storage, IStoreSettingsParent>("SelStoreSettingsParent");
-        }
-
-
-        [HarmonyPrefix]
-        public static void Before_ITab_Storage_FillTab(ITab_Storage __instance)
-        {
-            if (ReferenceEquals(__instance.GetType().Assembly, typeof(ITab_Storage).Assembly))
-            {
-                // only show hysteresis option for non derived (non-custom) storage(s)
-                HaulingHysteresis_InjectControls.showHysteresisCount++;
-
-                IStoreSettingsParent selStoreSettingsParent = GetSelStoreSettingsParent(__instance);
-                HaulingHysteresis_InjectControls.SettingsQueue.Enqueue(selStoreSettingsParent.GetStoreSettings());
-            }
-        }
-    }
-
-}
+*/
