@@ -1,28 +1,21 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using HarmonyLib;
 using System.Reflection;
-using System.Text;
-using HarmonyLib;
-using RimWorld;
-using UnityEngine;
 using Verse;
-using RimWorld.Planet;
 
 
 namespace SatisfiedStorage
 {
-    
-    
-    public class SatisfiedStorageMod : Mod
+
+
+    public class Mod : Verse.Mod
     {
 
-        public SatisfiedStorageMod(ModContentPack content) : base(content)
+        public Mod(ModContentPack content) : base(content)
         {
             Log.Message("SatisfiedStorage loading");
             Harmony harmonyInstance = new Harmony("SatisfiedStorageMod");
 
-			/*
+            /*
 			if (ModLister.GetActiveModWithIdentifier("LWM.DeepStorage") != null)
 			{
 				StoreUtility_NoStorageBlockersIn.checkIHoldMultipleThings = true;
@@ -30,9 +23,9 @@ namespace SatisfiedStorage
 			}
 			*/
 
-			harmonyInstance.PatchAll(Assembly.GetExecutingAssembly());
-		}
+            harmonyInstance.PatchAll(Assembly.GetExecutingAssembly());
+        }
 
-    }    
+    }
 
 }

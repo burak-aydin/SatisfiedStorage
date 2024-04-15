@@ -1,10 +1,8 @@
-﻿using System;
+﻿using HarmonyLib;
+using RimWorld;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Reflection;
-using HarmonyLib;
-using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -13,8 +11,9 @@ namespace SatisfiedStorage
 {
 
 
-[HarmonyPatch(typeof(ThingFilterUI), nameof(ThingFilterUI.DoThingFilterConfigWindow))]
-    class HaulingHysteresis_InjectControls {
+    [HarmonyPatch(typeof(ThingFilterUI), nameof(ThingFilterUI.DoThingFilterConfigWindow))]
+    class HaulingHysteresis_InjectControls
+    {
 
         private const float HysteresisHeight = 30f;
         private const float HysteresisBlockHeight = 35f;
@@ -26,31 +25,33 @@ namespace SatisfiedStorage
         internal static Queue<StorageSettings> SettingsQueue => _settingsQueue;
 
         [HarmonyPrefix]
-        public static void Before_DoThingFilterConfigWindow(ref object __state, ref Rect rect) {
+        public static void Before_DoThingFilterConfigWindow(ref object __state, ref Rect rect)
+        {
             bool showHysteresis = (showHysteresisCount-- > 0) && _settingsQueue.Count != 0;
             showHysteresisCount = Math.Max(0, showHysteresisCount);
 
             if (showHysteresis)
-            {                
+            {
                 DoHysteresisBlock(new Rect(0f, rect.yMax - HysteresisHeight, rect.width, HysteresisHeight), _settingsQueue.Dequeue());
-                rect= new Rect(rect.x, rect.y, rect.width, rect.height - HysteresisBlockHeight);            
+                rect = new Rect(rect.x, rect.y, rect.width, rect.height - HysteresisBlockHeight);
             }
         }
+        private static void DoHysteresisBlock(Rect rect, StorageSettings settings)
+        {
 
-        private static void DoHysteresisBlock(Rect rect, StorageSettings settings) {
+            Hysteresis storageSettings_Hysteresis = Mapping.Get(settings) ?? new Hysteresis();
 
-            StorageSettings_Hysteresis storageSettings_Hysteresis = StorageSettings_Mapping.Get(settings) ?? new StorageSettings_Hysteresis();
-                                   
-            storageSettings_Hysteresis.FillPercent = Widgets.HorizontalSlider(rect.LeftPart(0.8f), storageSettings_Hysteresis.FillPercent, 0f, 100f, false, "Refill cells less than");
-            
-            Widgets.Label(rect.RightPart(0.2f), storageSettings_Hysteresis.FillPercent.ToString("N0") + "%");
+            storageSettings_Hysteresis.FillPercent = Widgets.HorizontalSlider(rect.LeftPart(0.82f), storageSettings_Hysteresis.FillPercent, 0f, 100f, true, "Refill cells less than");
 
-            StorageSettings_Mapping.Set(settings, storageSettings_Hysteresis);
-        }        
+            rect = new Rect(rect.x, rect.y, rect.width, rect.height);
+            Widgets.Label(rect.RightPart(0.15f).BottomPart(0.72f), storageSettings_Hysteresis.FillPercent.ToString("N0") + "%");
+
+            Mapping.Set(settings, storageSettings_Hysteresis);
+        }
     }
 
-    
-     
+
+
     [HarmonyPatch(typeof(Listing_TreeThingFilter), "DoCategoryChildren")]
     static class ThingFilter_InjectFilter
     {
@@ -68,7 +69,7 @@ namespace SatisfiedStorage
             node = projections.Dequeue()(node);
         }
     }
-         
+
 
     [HarmonyPatch(typeof(StorageSettings), nameof(StorageSettings.ExposeData))]
     public class StorageSettings_ExposeData
@@ -77,12 +78,12 @@ namespace SatisfiedStorage
         [HarmonyPostfix]
         public static void ExposeData(StorageSettings __instance)
         {
-            StorageSettings_Hysteresis storageSettings_Hysteresis = StorageSettings_Mapping.Get(__instance);
-            Scribe_Deep.Look<StorageSettings_Hysteresis>(ref storageSettings_Hysteresis, "hysteresis", new object[0]);
+            Hysteresis storageSettings_Hysteresis = Mapping.Get(__instance);
+            Scribe_Deep.Look<Hysteresis>(ref storageSettings_Hysteresis, "hysteresis", new object[0]);
             bool flag = storageSettings_Hysteresis != null;
             if (flag)
             {
-                StorageSettings_Mapping.Set(__instance, storageSettings_Hysteresis);
+                Mapping.Set(__instance, storageSettings_Hysteresis);
             }
         }
     }
@@ -94,78 +95,78 @@ namespace SatisfiedStorage
         [HarmonyPostfix]
         public static void CopyFrom(StorageSettings __instance, StorageSettings other)
         {
-            StorageSettings_Hysteresis storageSettings_Hysteresis = StorageSettings_Mapping.Get(other);
+            Hysteresis storageSettings_Hysteresis = Mapping.Get(other);
             bool flag = storageSettings_Hysteresis != null;
             if (flag)
             {
-                StorageSettings_Mapping.Set(__instance, storageSettings_Hysteresis);
+                Mapping.Set(__instance, storageSettings_Hysteresis);
             }
         }
     }
 
-	[HarmonyPatch(typeof(StoreUtility), "NoStorageBlockersIn")]
+    [HarmonyPatch(typeof(StoreUtility), "NoStorageBlockersIn")]
     internal class StoreUtility_NoStorageBlockersIn
     {
-        // Some storage mods allow more than one thing in a cell.  If they do, we need to do
-        //   more of a check to see if the threshold has been met; we only check if we need to:
-        public static bool checkIHoldMultipleThings=false;
+        //Some storage mods allow more than one thing in a cell.  If they do, we need to do
+        //more of a check to see if the threshold has been met; we only check if we need to:
+        //public static bool checkIHoldMultipleThings = false;
 
-        [HarmonyPrefix]        
+        [HarmonyPrefix]
         public static bool NoStorageBlockersPrefix(ref bool __result, IntVec3 c, Map map, Thing thing)
         {
 
-			List<Thing> list = map.thingGrid.ThingsListAt(c);
-			bool flag = false;
-			int items = 0;
-			for (int i = 0; i < list.Count; i++)
-			{
-				Thing thing2 = list[i];
-				bool canStackWith = thing2.CanStackWith(thing);
-				if (canStackWith)
-				{
-					items += thing2.stackCount;
-				}
+            List<Thing> list = map.thingGrid.ThingsListAt(c);
+            bool flag = false;
+            int items = 0;
+            for (int i = 0; i < list.Count; i++)
+            {
+                Thing thing2 = list[i];
+                bool canStackWith = thing2.CanStackWith(thing);
+                if (canStackWith)
+                {
+                    items += thing2.stackCount;
+                }
 
-				if (!flag && thing2.def.EverStorable(false) && canStackWith && thing2.stackCount < thing2.def.stackLimit)
-				{ 
-					flag = true;
-				}
-				if (thing2.def.entityDefToBuild != null && thing2.def.entityDefToBuild.passability != Traversability.Standable)
-				{
-					__result = false;
-					return false;
-				}
-				if (thing2.def.surfaceType == SurfaceType.None && thing2.def.passability != Traversability.Standable && (c.GetMaxItemsAllowedInCell(map) <= 1 || thing2.def.category != ThingCategory.Item))
-				{
-					__result = false;
-					return false;
-				}
-			}
+                if (!flag && thing2.def.EverStorable(false) && canStackWith && thing2.stackCount < thing2.def.stackLimit)
+                {
+                    flag = true;
+                }
+                if (thing2.def.entityDefToBuild != null && thing2.def.entityDefToBuild.passability != Traversability.Standable)
+                {
+                    __result = false;
+                    return false;
+                }
+                if (thing2.def.surfaceType == SurfaceType.None && thing2.def.passability != Traversability.Standable && (c.GetMaxItemsAllowedInCell(map) <= 1 || thing2.def.category != ThingCategory.Item))
+                {
+                    __result = false;
+                    return false;
+                }
+            }
 
-			int maxItemsAllowedInCell = c.GetMaxItemsAllowedInCell(map);
-			bool rv = flag || c.GetItemCount(map) < maxItemsAllowedInCell;
+            int maxItemsAllowedInCell = c.GetMaxItemsAllowedInCell(map);
+            bool rv = flag || c.GetItemCount(map) < maxItemsAllowedInCell;
 
-			if (rv)
-			{
-				float num = 100f;
-				SlotGroup slotGroup = c.GetSlotGroup(map);
+            if (rv)
+            {
+                float num = 100f;
+                SlotGroup slotGroup = c.GetSlotGroup(map);
 
-				flag = slotGroup != null && slotGroup.Settings != null;
-				if (flag)
-				{
-					num = StorageSettings_Mapping.Get(slotGroup.Settings).FillPercent;
-				}
+                flag = slotGroup != null && slotGroup.Settings != null;
+                if (flag)
+                {
+                    num = Mapping.Get(slotGroup.Settings).FillPercent;
+                }
 
-				//TODO: LWM.DeepStorage should not need anything here anymore, but check
-			
-				//Log.Message(thing.def.defName + ":" + items + "<" + (maxItemsAllowedInCell * thing.def.stackLimit * (num / 100f)));
-				rv &= items < maxItemsAllowedInCell * thing.def.stackLimit * (num / 100f);
-			}
+                //TODO: LWM.DeepStorage should not need anything here anymore, but check
 
-			__result = rv;
-			return false;
-		}      
-        
+                //Log.Message(thing.def.defName + ":" + items + "<" + (maxItemsAllowedInCell * thing.def.stackLimit * (num / 100f)));
+                rv &= items < maxItemsAllowedInCell * thing.def.stackLimit * (num / 100f);
+            }
+
+            __result = rv;
+            return false;
+        }
+
     }
 
     [HarmonyPatch(typeof(ITab_Storage), "FillTab")]
@@ -177,7 +178,7 @@ namespace SatisfiedStorage
 
         static ITab_Storage_FillTab()
         {
-            GetSelStoreSettingsParent = Access.GetPropertyGetter<RimWorld.ITab_Storage, IStoreSettingsParent>("SelStoreSettingsParent");
+            GetSelStoreSettingsParent = AccessManager.GetPropertyGetter<RimWorld.ITab_Storage, IStoreSettingsParent>("SelStoreSettingsParent");
         }
 
 
@@ -206,14 +207,14 @@ namespace SatisfiedStorage
 
             //we dont make empty space so if its full then we dont care
 
-            
+
 
             if (__result)
             {
-                
+
                 float num = 100f;
                 SlotGroup slotGroup=c.GetSlotGroup(map);
-                
+
                 bool flag = slotGroup != null && slotGroup.Settings != null;
                 if (flag)
                 {
@@ -261,22 +262,22 @@ namespace SatisfiedStorage
                         }
 
                     }
-                    
+
                 }
 
 				Building edifice = c.GetEdifice(map);
 				if (edifice != null)
 				{
 
-	
+
 					__result &= !map.thingGrid.ThingsListAt(c).Any(t => {
 						Log.Message("scount:" + t.stackCount + "	mitems:" + edifice.MaxItemsInCell * t.def.stackLimit * (num / 100f));
 						return t.def.EverStorable(false) && t.stackCount >= edifice.MaxItemsInCell * t.def.stackLimit * (num / 100f);
 						});
-				
+
 				}
 
 
-			}      
+			}
         }
 */

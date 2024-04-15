@@ -2,7 +2,7 @@
 
 namespace SatisfiedStorage
 {
-    public class StorageSettings_Hysteresis : IExposable
+    public class Hysteresis : IExposable
     {
         public float FillPercent = 100f;
 
